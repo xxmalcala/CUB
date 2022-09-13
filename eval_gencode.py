@@ -112,12 +112,12 @@ if __name__ == '__main__':
     try:
         fasta_file = sys.argv[1]
         taxon = sys.argv[2]
+        db_loc = sys.argv[3]
     except:
-        print('Usage:\n    python eval_gencode.py [FASTA-FILE-CDS] [TAXON]\n')
+        print('Usage:\n    python eval_gencode.py [FASTA-FILE-CDS] [TAXON] [AA-DATABASE]\n')
         sys.exit(1)
 
     out_folder = prepare_folders(taxon)
-    db_loc = '/home/dr_x/Desktop/AMNH/GenCode/db_dmnd/OGsout.dmnd'
     xml_file = dmnd_blastx_compare(fasta_file, taxon, out_folder, db_loc, 1e-15, 24)
     nuc_seqs = parse_fasta(fasta_file)
 
