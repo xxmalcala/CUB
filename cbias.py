@@ -1,20 +1,17 @@
+#!/usr/bin/env python3
 
-
+import shutil, sys
 from pathlib import Path
-import re
-import sys
-# import matplotlib.pyplot as plt
 import numpy as np
-# import seaborn as sns
 
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqUtils import GC
 
 def prep_folders(taxon):
-    Path(f'{taxon}/SpreadSheets').mkdir(parents=True, exist_ok=True)
-    Path(f'{taxon}/Original').mkdir(parents=True, exist_ok=True)
-    return f'{taxon}'
+    Path(f'{taxon}_CodonUsageBias/SpreadSheets').mkdir(parents=True, exist_ok=True)
+    Path(f'{taxon}_CodonUsageBias/Original').mkdir(parents=True, exist_ok=True)
+    return f'{taxon}_CodonUsageBias'
 
 
 def getCDNtable(gCode):
@@ -139,9 +136,11 @@ def getCDNtable(gCode):
     # codons split into four-fold and two-fold groups.
     # Note that this also splits four-fold degenerate codons that OUGHT to
     # be in "different" functional categories (e.g. CAA =/= TAA)
+
     peritrich_no6fold = {**universal_no6fold,
         'TAA': ['E_', 'two', 0], 'TAG': ['E_', 'two', 0],
         'TGA': ['*', 'one', 0]}
+
     cdnTableDict = {1:[universal_no6fold,universal_6fold],
         4:[blepharisma_no6fold, blepharisma_6fold],
         6:[ciliate_no6fold,ciliate_6fold],
@@ -150,6 +149,7 @@ def getCDNtable(gCode):
         30:[peritrich_no6fold,peritrich_6fold],
         'chilodonella':[chilo_no6fold,chilo_6fold],
         'chilo':[chilo_no6fold,chilo_6fold]}
+
     return cdnTableDict[gCode]
 
 def mapCdns(seq, cdnTable):
@@ -162,8 +162,10 @@ def mapCdns(seq, cdnTable):
             cdnTable[c][-1] += 1
         except:
             amb_cdn += 1
+
     if cdnTable['TCC'][1] == 'six':
         return cdnTable, amb_cdn
+
     else:
         return cdnTable
 
@@ -174,17 +176,21 @@ class GCeval():
     def gcTotal(seq):
         # This function returns global GC content
         return round(GC(seq), 4)
+
     def gc1(seq):
         # This function return the GC content of the first position of a codon
         return round(GC(''.join([seq[n] for n in range(0, len(seq), 3)])), 4)
+
     def gc2(seq):
         # This function return the GC content of the second position of a codon
         return round(GC(''.join([seq[n] for n in
             range(1, len(seq), 3)])), 4)
+
     def gc3(seq):
         # This function return the GC content of the third position of a codon
         return round(GC(''.join([seq[n] for n in
             range(2, len(seq[2:]), 3)])), 4)
+
     def gc3_4F(cdnTbl):
     #     # This function return the GC content of the third position of four-fold
     #     # degenerate codons
@@ -211,7 +217,9 @@ class CalcCUB:
         null = [CalcCUB.calc_exp_Wright_ENc(n) for n in np.arange(0,.51,0.01)]
         null += null[:-1][::-1]
         return [str(i)+'\t'+str(j) for i, j in zip([n for n in range(0, 101)],null)]
+
     def calc_Wright_ENc(cdnTable):
+
         # Follows Wright's (1990) calculations for determining ENc scores.
         def faCalcWright(aa_counts):
             # Returns the codon homozygosity (fa) for a given "type" of AA (e.g.
@@ -222,9 +230,12 @@ class CalcCUB:
             # fa --> codon homozygosity
             try:
                 fa = (((n_aa*sum([(i/float(n_aa))**2 for i in counts]))-1)/(n_aa-1))
+
             except:
                 fa = 0
+
             return fa
+
         def ENcWright_by_Degen(fa_data):
             # Same as used in Wright 1990, averages the homozygosity across all codons
             # of a given class (e.g. 2-fold degeneracy)
@@ -239,6 +250,7 @@ class CalcCUB:
                     f_aa = 1
                 enc += k/f_aa
             return enc
+
         # Determines the number of degenerate groups to use (i.e. whether 6-Fold
         # degeneracy is present).
         degen_cdns = {}
@@ -248,6 +260,7 @@ class CalcCUB:
             else:
                 if v[0] not in degen_cdns[v[1]]:
                     degen_cdns[v[1]] += [v[0]]
+
         # Calculates codon homozygosity (fa) for each amino acid. Groups the
         # resulting values based on the amino acids degeneracy (e.g. 'two-fold').
         fa_cdns = {len(v):[] for k, v in degen_cdns.items() if 'one' not in k}
@@ -258,6 +271,7 @@ class CalcCUB:
             for aa in v:
                 aa_counts = [cdnTable[k] for k in cdnTable.keys() if cdnTable[k][0] == aa]
                 fa_cdns[len(v)] += [faCalcWright(aa_counts)]
+
         enc_val = min(61, round(ENcWright_by_Degen(fa_cdns),4))
         return enc_val
 
@@ -265,6 +279,7 @@ def check_gcode(gcode):
     # supported_codes = {'universal':1, '1':1, 'blepharisma':4, '4':4, 'ciliate':6,
     #     '6':6, 'euplotes':10, '10':10, 'mesodinium':29, '29':29,
     #     'peritrich':30, '30':30, 'bacterial':11, '11':11, 'alt-yeast':12, '12':12}
+
     supported_codes = {'universal':1, '1':1, 'blepharisma':4, '4':4, 'ciliate':6,
         '6':6, 'euplotes':10, '10':10, 'mesodinium':29, '29':29,
         'peritrich':30, '30':30}
@@ -298,28 +313,35 @@ def CalcRefFasta(fasta_file, gcode):
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    fasta_file = args[0]
-    print(len(args))
-    if len(args) >= 2:
-        fasta_file = args[0]
-        taxon = args[1]
-        try:
-            gcode = check_gcode(args[2])
-        except IndexError:
-            gcode = 1
+    if len(sys.argv[1:]) == 2:
+        cds_fasta = sys.argv[1]
+        taxon = sys.argv[2]
+        gcode = 1
+    elif len(sys.argv[1:]) == 3:
+        cds_fasta = sys.argv[1]
+        taxon = sys.argv[2]
+        gcode = sys.argv[3]
     else:
+        print('Usage:\n\n    python3 cbias.py [FASTA-FILE-CDS] [TAXON-NAME] ' \
+            '[TRANSLATION-TABLE (default = 1)]\n')
         sys.exit(1)
 
+    gcode_good = check_gcode(gcode)
+
     out_folder = prep_folders(taxon)
-    seq_info = CalcRefFasta(fasta_file, gcode)
+    shutil.copy2(cds_fasta, f'{out_folder}/Original/')
+    seq_info = CalcRefFasta(cds_fasta, gcode_good)
     null_gc3 = CalcCUB.null_ENc_GC3()
+
     with open(f'{out_folder}/SpreadSheets/{taxon}.ENc_GC3.tsv','w+') as w:
         w.write(f'Gene\tLength\tTotal GC\tGC1\tGC2\tGC3\tGC12\tGC3-Four-Fold-Degen' \
             f'\tExpected Wright ENc\tObserved Wright 6-Fold ENc\t' \
             f'Observed Wright No 6-Fold ENc\n')
+
         for k, v in seq_info.items():
             w.write(f'{k}\t{len(v.seq)}\t{v.gc_total}\t{v.gc1}\t{v.gc2}\t{v.gc3}' \
                 f'\t{v.gc12}\t{v.gc3_4F}\t{v.exp_ENc}\t{v.obsENc_6F}\t{v.obsENc_No6F}\n')
+
     with open(f'{out_folder}/SpreadSheets/{taxon}.Null_ENc_GC3.tsv','w+') as w:
         w.write('GC3\tENc\n')
         w.write('\n'.join(null_gc3))
